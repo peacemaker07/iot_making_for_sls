@@ -22,10 +22,10 @@ service: iot-making-for-sls
 provider:
   name: aws
   runtime: python3.7
-
-# you can overwrite defaults here
-#  stage: dev
-#  region: us-east-1
+  timeout: 300
+  stage: ${opt:stage}
+  region: ap-northeast-1
+  profile: iot_making
 
 # you can add statements to the Lambda function's IAM Role here
 #  iamRoleStatements:
@@ -100,8 +100,83 @@ functions:
 #      variable2: value2
 
 # you can add CloudFormation resource templates here
-#resources:
-#  Resources:
+resources:
+  Resources:
+    # S3 bucketの構築
+    IoTMakingBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${file(./serverless.env.yml):NAME_PREFIX}-iot-making-${opt:stage}
+    # DynamoDBのテーブル構築
+    DynamoDbEnvironment:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: environment-from-soracom-${opt:stage}
+        AttributeDefinitions:
+          - AttributeName: imsi
+            AttributeType: S
+          - AttributeName: timestamp
+            AttributeType: N
+        KeySchema:
+          - AttributeName: imsi
+            KeyType: HASH
+          - AttributeName: timestamp
+            KeyType: RANGE
+        # プロビジョニング用設定値
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: 3
+        #   WriteCapacityUnits: 3
+        # On-Demand用設定値
+        BillingMode: PAY_PER_REQUEST
+
+    # AWS IoT Rule用のRole
+    IoTRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - iot.amazonaws.com
+              Action:
+                - sts:AssumeRole
+    # AWS IoT DynamoDBv2アクションのPolicy
+    IoTDynamoDBPutItemPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: IoTDynamoDBPutItemPolicy
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: "*"
+            - Effect: Allow
+              Action:
+                - lambda:InvokeFunction
+              Resource: "*"
+        Roles: [ Ref: IoTRole ]
+    # ルール、アクションを使用してDynamoDBへのレコード登録
+    EnvironmentThingRule:
+      Type: AWS::IoT::TopicRule
+      Properties:
+        TopicRulePayload:
+          RuleDisabled: false
+          Sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
+          Actions:
+            - DynamoDBv2:
+                PutItem:
+                  TableName:
+                    Ref: DynamoDbEnvironment
+                RoleArn:
+                  Fn::GetAtt:
+                    - IoTRole
+                    - Arn
+
+
 #    NewResource:
 #      Type: AWS::S3::Bucket
 #      Properties:
@@ -110,3 +185,6 @@ functions:
 #     NewOutput:
 #       Description: "Description for the output"
 #       Value: "Some output value"
+
+plugins:
+  - serverless-python-requirements
