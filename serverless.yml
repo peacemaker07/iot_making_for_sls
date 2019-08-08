@@ -57,8 +57,14 @@ provider:
 #    - exclude-me-dir/**
 
 functions:
-  hello:
-    handler: handler.hello
+  environment:
+    handler: handler.environment
+    role: IotActionRoleForLambda
+    events:
+      - iot:
+          name: "Environment"
+          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
+          description: "Debug Environment Action"
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -102,12 +108,17 @@ functions:
 # you can add CloudFormation resource templates here
 resources:
   Resources:
+    #
     # S3 bucketの構築
+    #
     IoTMakingBucket:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${file(./serverless.env.yml):NAME_PREFIX}-iot-making-${opt:stage}
+    #
     # DynamoDBのテーブル構築
+    #
+    # センシングしたデータの保存先
     DynamoDbEnvironment:
       Type: "AWS::DynamoDB::Table"
       Properties:
@@ -128,7 +139,26 @@ resources:
         #   WriteCapacityUnits: 3
         # On-Demand用設定値
         BillingMode: PAY_PER_REQUEST
-
+    # デバイスのマスタ
+    DynamoDbDevice:
+      Type: "AWS::DynamoDB::Table"
+      Properties:
+        TableName: iot-device-${opt:stage}
+        AttributeDefinitions:
+          - AttributeName: imsi
+            AttributeType: S
+        KeySchema:
+          - AttributeName: imsi
+            KeyType: HASH
+        # プロビジョニング用設定値
+        # ProvisionedThroughput:
+        #   ReadCapacityUnits: 3
+        #   WriteCapacityUnits: 3
+        # On-Demand用設定値
+        BillingMode: PAY_PER_REQUEST
+    #
+    # Role, Policy
+    #
     # AWS IoT Rule用のRole
     IoTRole:
       Type: AWS::IAM::Role
@@ -159,6 +189,40 @@ resources:
                 - lambda:InvokeFunction
               Resource: "*"
         Roles: [ Ref: IoTRole ]
+    # ルール、アクションを使用してLambdaを実行時のRole
+    IotActionRoleForLambda:
+      Type: AWS::IAM::Role
+      Properties:
+        Path: /
+        RoleName: IotActionRoleForLambda
+        AssumeRolePolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: LogsPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource:
+                    - 'Fn::Join':
+                        - ':'
+                        -
+                          - 'arn:aws:logs'
+                          - Ref: 'AWS::Region'
+                          - Ref: 'AWS::AccountId'
+                          - '*'
+    #
+    # AWS IoT ルール、アクション
+    #
     # ルール、アクションを使用してDynamoDBへのレコード登録
     EnvironmentThingRule:
       Type: AWS::IoT::TopicRule
@@ -175,7 +239,6 @@ resources:
                   Fn::GetAtt:
                     - IoTRole
                     - Arn
-
 
 #    NewResource:
 #      Type: AWS::S3::Bucket
