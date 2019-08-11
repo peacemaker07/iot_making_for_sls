@@ -44,8 +44,13 @@ provider:
 #            - "/*"
 
 # you can define service wide environment variables here
-#  environment:
-#    variable1: value1
+  environment:
+    HVF_ACCESS_KEY_ID: ${file(./serverless.env.yml):HVF_ACCESS_KEY_ID}
+    HVF_SECRET_ACCESS_KEY: ${file(./serverless.env.yml):HVF_SECRET_ACCESS_KEY}
+    TZ: ${file(./serverless.env.yml):TZ}
+    AUTH0_DOMAIN: ${file(./serverless.env.yml):AUTH0_DOMAIN}
+    API_AUDIENCE: ${file(./serverless.env.yml):API_AUDIENCE}
+    ENV: ${opt:stage}
 
 # you can add packaging information here
 #package:
@@ -57,14 +62,28 @@ provider:
 #    - exclude-me-dir/**
 
 functions:
-  environment:
-    handler: handler.environment
-    role: IotActionRoleForLambda
+#  environment:
+#    handler: handler.environment
+#    role: IotActionRoleForLambda
+#    events:
+#      - iot:
+#          name: "Environment"
+#          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
+#          description: "Debug Environment Action"
+  range_environment:
+    handler: handler.range_environment
     events:
-      - iot:
-          name: "Environment"
-          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
-          description: "Debug Environment Action"
+      - http:
+          path: range
+          method: get
+          authorizer:
+            name: jwt_rsa_custom_authorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+            identityValidationExpression: ^Bearer [-0-9a-zA-z\.]*$
+            type: token
+  jwt_rsa_custom_authorizer:
+    handler: handler.jwt_rsa_custom_authorizer
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -251,3 +270,7 @@ resources:
 
 plugins:
   - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: true
