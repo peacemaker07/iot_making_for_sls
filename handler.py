@@ -7,6 +7,9 @@ from sub.environment import get_range_environment_data
 def iot_devices(event, context):
 
     iot_devices = scan_iot_device()
+    # imsiは除く
+    for device in iot_devices:
+        device.pop('imsi')
 
     response = {
         "statusCode": 200,
@@ -18,17 +21,30 @@ def iot_devices(event, context):
 
 def range_environment(event, context):
 
-    query_string = event.get('queryStringParameters', None)
+    query_string = event.get('queryStringParameters')
     if not query_string:
         response = {
             "statusCode": 400,
         }
         return response
 
-    param_from = query_string.get('from', None)
-    param_to = query_string.get('to', None)
-    imsi = query_string.get('imsi', None)
-    if not param_from or not param_to or not imsi:
+    param_from = query_string.get('from')
+    param_to = query_string.get('to')
+    device_id = query_string.get('device_id')
+    if not param_from or not param_to or not device_id:
+        response = {
+            "statusCode": 400,
+        }
+        return response
+
+    # device_idからimsiを取得する
+    iot_devices = scan_iot_device()
+    imsi = None
+    for device in iot_devices:
+        if device.get('device_id') == device_id:
+            imsi = device.get('imsi')
+            break
+    if not imsi:
         response = {
             "statusCode": 400,
         }
@@ -43,11 +59,14 @@ def range_environment(event, context):
         }
         return response
 
-    range_hvf_datas = get_range_environment_data(imsi, unix_time_from, unix_time_to)
-
+    range_datas = get_range_environment_data(imsi, unix_time_from, unix_time_to)
+    for range_data in range_datas:
+        # imsiをdevice_idとする
+        range_data.pop('imsi')
+        range_data.update({'device_id': device_id})
     response = {
         "statusCode": 200,
-        "body": json.dumps(range_hvf_datas)
+        "body": json.dumps(range_datas)
     }
 
     return response
