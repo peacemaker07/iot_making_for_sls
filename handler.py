@@ -1,6 +1,19 @@
 import json
 from sub.jwt_rsa_custom_authorizer import requires_auth, get_policy_document, AuthError
+from sub.iot_device import scan_iot_device
 from sub.environment import get_range_environment_data
+
+
+def iot_devices(event, context):
+
+    iot_devices = scan_iot_device()
+
+    response = {
+        "statusCode": 200,
+        "body": json.dumps(iot_devices)
+    }
+
+    return response
 
 
 def range_environment(event, context):

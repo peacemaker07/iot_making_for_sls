@@ -35,9 +35,21 @@ class BaseDynamo:
         res = self.table.put_item(Item=item)
         return res
 
+    def scan(self, query=None):
+        if query:
+            return self.table.scan(FilterExpression=query)
+        else:
+            return self.table.scan()
+
     def query(self, key_condition_expression):
         res = self.table.query(KeyConditionExpression=key_condition_expression)
         return res
+
+    def get_items_by_scan(self, query=None):
+
+        res = self.scan(query)
+        items = res['Items']
+        return self.get_items_to_dict_list(items)
 
     def get_items_by_query(self, query=None):
 

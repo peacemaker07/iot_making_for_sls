@@ -74,7 +74,19 @@ functions:
     handler: handler.range_environment
     events:
       - http:
-          path: range
+          path: environment/range
+          method: get
+          authorizer:
+            name: jwt_rsa_custom_authorizer
+            resultTtlInSeconds: 0
+            identitySource: method.request.header.Authorization
+            identityValidationExpression: ^Bearer [-0-9a-zA-z\.]*$
+            type: token
+  iot_devices:
+    handler: handler.iot_devices
+    events:
+      - http:
+          path: iot_devices
           method: get
           authorizer:
             name: jwt_rsa_custom_authorizer
