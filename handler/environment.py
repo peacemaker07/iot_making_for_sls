@@ -1,22 +1,7 @@
 import json
-from sub.jwt_rsa_custom_authorizer import requires_auth, get_policy_document, AuthError
-from sub.iot_device import scan_iot_device
-from sub.environment import get_range_environment_data
-
-
-def iot_devices(event, context):
-
-    iot_devices = scan_iot_device()
-    # imsiは除く
-    for device in iot_devices:
-        device.pop('imsi')
-
-    response = {
-        "statusCode": 200,
-        "body": json.dumps(iot_devices)
-    }
-
-    return response
+from boto3.dynamodb.conditions import Key
+from models.environment import EnvironmentDynamoDB
+from .iot_device import scan_iot_device
 
 
 def range_environment(event, context):
@@ -72,29 +57,37 @@ def range_environment(event, context):
     return response
 
 
-def jwt_rsa_custom_authorizer(event, context):
+def get_range_environment_data(imsi, unix_time_from, unix_time_to):
 
-    try:
-        payload = requires_auth(event)
-    except AuthError as e:
-        print(e.status_code)
-        print(e.error)
-        return {
-            'principalId': 'user',
-            'policyDocument': get_policy_document('Deny', event.get('methodArn')),
-            'context': {
-                'message': e.error.get('code', ''),
-                'status': e.status_code
-            }
-        }
-    except Exception as e:
-        return {
-            'principalId': 'user',
-            'policyDocument': get_policy_document('Deny', event.get('methodArn')),
-        }
+    query_from = unix_time_from
+    query_to = unix_time_to
 
-    return {
-        'principalId': payload.get('sub'),
-        'policyDocument': get_policy_document('Allow', event.get('methodArn')),
-        'context': {},
-    }
+    dynamodb = EnvironmentDynamoDB()
+    query_count = 0
+    all_item = []
+    while True:
+        query = Key('imsi').eq(imsi) & Key('timestamp').between(query_from, query_to)
+
+        try:
+            items, last_evaluated_key = dynamodb.get_items_by_query(query=query)
+            if not items:
+                break
+            all_item.extend(items)
+        except:
+            all_item = []
+            break
+
+        if query_count > 10:
+            # 無限ループ防止
+            break
+
+        if not last_evaluated_key:
+            break
+        query_from = last_evaluated_key.get('timestamp')
+        if not query_from:
+            break
+
+        query_from += 1  # 取得した最後のタイムスタンプ+1から再取得する
+        query_count += 1
+
+    return all_item

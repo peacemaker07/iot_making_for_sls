@@ -70,6 +70,7 @@ functions:
 #          name: "Environment"
 #          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
 #          description: "Debug Environment Action"
+  # TODO シークレットキーじゃなく、Roleでアクセスするように修正！
   range_environment:
     handler: handler.range_environment
     events:

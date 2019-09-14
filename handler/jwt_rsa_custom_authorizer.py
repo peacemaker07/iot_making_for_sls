@@ -9,6 +9,34 @@ API_AUDIENCE = get_env('API_AUDIENCE')
 ALGORITHMS = ["RS256"]
 
 
+def jwt_rsa_custom_authorizer(event, context):
+
+    try:
+        payload = requires_auth(event)
+    except AuthError as e:
+        print(e.status_code)
+        print(e.error)
+        return {
+            'principalId': 'user',
+            'policyDocument': get_policy_document('Deny', event.get('methodArn')),
+            'context': {
+                'message': e.error.get('code', ''),
+                'status': e.status_code
+            }
+        }
+    except Exception as e:
+        return {
+            'principalId': 'user',
+            'policyDocument': get_policy_document('Deny', event.get('methodArn')),
+        }
+
+    return {
+        'principalId': payload.get('sub'),
+        'policyDocument': get_policy_document('Allow', event.get('methodArn')),
+        'context': {},
+    }
+
+
 # Error handler
 class AuthError(Exception):
 
@@ -47,7 +75,8 @@ def requires_auth(event):
             issuer="https://" + AUTH0_DOMAIN + "/"
         )
     except jwt.ExpiredSignatureError:
-        raise AuthError({"code": "token_expired", "description": "token is expired"}, 401)
+        raise AuthError({"code": "token_expired",
+                         "description": "token is expired"}, 401)
     except jwt.JWTClaimsError:
         raise AuthError({"code": "invalid_claims",
                          "description": "incorrect claims, please check the audience and issuer"}, 401)
