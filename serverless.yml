@@ -50,6 +50,8 @@ provider:
     TZ: ${file(./serverless.env.yml):TZ}
     AUTH0_DOMAIN: ${file(./serverless.env.yml):AUTH0_DOMAIN}
     API_AUDIENCE: ${file(./serverless.env.yml):API_AUDIENCE}
+    SLACK_NOTIFY_URL: ${file(./serverless.env.yml):SLACK_NOTIFY_URL}
+    LINE_NOTIFY_ACCESS_TOKEN: ${file(./serverless.env.yml):LINE_NOTIFY_ACCESS_TOKEN}
     ENV: ${opt:stage}
 
 # you can add packaging information here
@@ -70,6 +72,9 @@ functions:
 #          name: "Environment"
 #          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
 #          description: "Debug Environment Action"
+  #
+  # Amazon API Gateway: センシングデータの取得
+  #
   # TODO シークレットキーじゃなく、Roleでアクセスするように修正！
   range_environment:
     handler: handler.range_environment
@@ -83,6 +88,9 @@ functions:
             identitySource: method.request.header.Authorization
             identityValidationExpression: ^Bearer [-0-9a-zA-z\.]*$
             type: token
+  #
+  # Amazon API Gateway: デバイス情報の取得
+  #
   iot_devices:
     handler: handler.iot_devices
     events:
@@ -95,8 +103,22 @@ functions:
             identitySource: method.request.header.Authorization
             identityValidationExpression: ^Bearer [-0-9a-zA-z\.]*$
             type: token
+  #
+  # Amazon API Gateway: Lambdaオーソライザー
+  #
   jwt_rsa_custom_authorizer:
     handler: handler.jwt_rsa_custom_authorizer
+  #
+  # AWS IoT CoreのActionでLambdaを実行
+  #
+  notify:
+    handler: handler.notify
+    role: IotActionRoleForLambda
+    events:
+      - iot:
+          name: "Notify"
+          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
+          description: "Notify of slack and LINE Notify"
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details

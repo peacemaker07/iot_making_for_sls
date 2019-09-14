@@ -15,8 +15,6 @@ AWSのIoT関連をserverless frameworkを使用して構築する際の実装集
   - Lambdaからslackへ通知
   - LambdaからLINE notifyへ通知
 
-## Demo
-
 ## Requirement
 
 - node 6 以上
