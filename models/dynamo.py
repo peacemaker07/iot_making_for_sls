@@ -16,14 +16,9 @@ class BaseDynamo:
 
     def __init__(self, region_name='ap-northeast-1'):
 
-        aws_access_key_id = get_env('HVF_ACCESS_KEY_ID')
-        aws_secret_access_key = get_env('HVF_SECRET_ACCESS_KEY')
-
         self.dynamodb = boto3.resource(
             service_name='dynamodb',
             region_name=region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
         )
 
         stage = get_env('ENV')

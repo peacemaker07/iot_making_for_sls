@@ -12,8 +12,7 @@ AWSのIoT関連をserverless frameworkを使用して構築する際の実装集
   - ルール、アクションを使用してDynamoDBへのレコード登録
   - ルール、アクションを使用してLambdaを実行
 - その他
-  - Lambdaからslackへ通知
-  - LambdaからLINE notifyへ通知
+  - Lambdaからslack、LINE Notifyへ通知
 
 ## Requirement
 
@@ -84,6 +83,11 @@ TODO : S3 のprefixについて補足を追加
 ```
 $ sls deploy -s dev -v
 ```
+
+### Lambdaからslack、LINE Notifyへ通知
+
+設定はこちら
+- [[超簡単]LINE notify を使ってみる](https://qiita.com/iitenkida7/items/576a8226ba6584864d95)
 
 ## etc
 
