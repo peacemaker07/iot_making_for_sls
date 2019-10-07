@@ -50,7 +50,7 @@ provider:
     API_AUDIENCE: ${file(./serverless.env.yml):API_AUDIENCE}
     SLACK_NOTIFY_URL: ${file(./serverless.env.yml):SLACK_NOTIFY_URL}
     LINE_NOTIFY_ACCESS_TOKEN: ${file(./serverless.env.yml):LINE_NOTIFY_ACCESS_TOKEN}
-    THING_NAME: ${file(./serverless.env.yml):THING_NAME}
+    NAME_PREFIX: ${file(./serverless.env.yml):NAME_PREFIX}
     ENV: ${opt:stage}
 
 # you can add packaging information here

@@ -16,7 +16,7 @@ def create_token_for_image_upload(event, context):
     iot_data = boto3.client('iot-data')
 
     # Thing名
-    thing_name = get_env('THING_NAME')
+    thing_name = event.get('imsi')
     if not thing_name:
         return
 
