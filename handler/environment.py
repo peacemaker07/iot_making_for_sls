@@ -3,6 +3,8 @@ from boto3.dynamodb.conditions import Key
 from models.environment import EnvironmentDynamoDB
 from .iot_device import scan_iot_device
 
+from utils.shadow import get_shadow, shadow_update
+
 
 def range_environment(event, context):
 
@@ -91,3 +93,41 @@ def get_range_environment_data(imsi, unix_time_from, unix_time_to):
         query_count += 1
 
     return all_item
+
+
+def _update_camera_status(event, imsi):
+
+    lux = event.get('lux')
+    if lux is None:
+        return
+
+    payload_dict = get_shadow(imsi)
+
+    # カメラの状態変更を行うか
+    if not payload_dict['state']['desired'].get('camera'):
+        return
+    if not payload_dict['state']['desired']['camera'].get('is_change_status'):
+        return
+
+    if payload_dict:
+
+        is_shooting = payload_dict['state']['desired']['camera']['is_shooting']
+
+        update_payload = ''
+        if lux > 0 and is_shooting is False:
+            update_payload = b'{"state": {"desired": {"camera": {"is_shooting": true}}}}'
+        elif lux == 0 and is_shooting is True:
+            update_payload = b'{"state": {"desired": {"camera": {"is_shooting": false}}}}'
+
+        if update_payload:
+            shadow_update(imsi, update_payload)
+
+
+def notification_sensor_environment(event, context):
+
+    imsi = event.get('imsi')
+    if not imsi:
+        return
+
+    # カメラの撮影有無を変更
+    _update_camera_status(event, imsi)

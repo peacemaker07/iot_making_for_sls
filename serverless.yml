@@ -130,6 +130,17 @@ functions:
           name: "CreateTokenForImageUpload"
           sql: "SELECT topic(3) AS imsi FROM 'token/req/+'"
           description: "create token for image upload"
+  #
+  # センシングデータを受信時にLambdaを実行する
+  #
+  notification_sensor_environment:
+    handler: handler.notification_sensor_environment
+    role: IotActionRoleForLambda
+    events:
+      - iot:
+          name: "NotificationSensorEnvironment"
+          sql: "SELECT *, topic(2) as imsi FROM 'environment/+'"
+          description: "notification sensor environment"
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -335,6 +346,11 @@ resources:
                           - Ref: 'AWS::AccountId'
                           - ":table/"
                           - Ref: DynamoDbDevice
+                - Effect: Allow
+                  Action:
+                    - iot:*
+                  # TODO リソースを絞る
+                  Resource: '*'
     # S3への一時的なアクセス権をSTSから取得する時のRole
     CreateTokenRole:
       Type: AWS::IAM::Role
