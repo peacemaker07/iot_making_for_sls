@@ -185,12 +185,39 @@ functions:
 resources:
   Resources:
     #
+    # S3 TriggerでLambdaを起動
+    #
+    NotificationTwitterLambda:
+      Type: AWS::Lambda::Function
+      Properties:
+        Handler: handler.notification_twitter
+        FunctionName: notification_twitter
+        Role:
+          Fn::GetAtt:
+            - "S3TriggerRoleForLambda"
+            - "Arn"
+        Runtime: "python3.7"
+    #
     # S3 bucketの構築
     #
     IoTMakingBucket:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${file(./serverless.env.yml):NAME_PREFIX}-iot-making-${opt:stage}
+        NotificationConfiguration:
+          LambdaConfigurations:
+            - Event: "s3:ObjectCreated:Put"
+              Filter:
+                S3Key:
+                  Rules:
+                    # - Name: prefix
+                    #   Value: inbox/
+                    - Name: suffix
+                      Value: jpg
+              Function:
+                'Fn::GetAtt':
+                  - NotificationTwitterLambda
+                  - Arn
     #
     # DynamoDBのテーブル構築
     #
@@ -252,6 +279,23 @@ resources:
         #   WriteCapacityUnits: 3
         # On-Demand用設定値
         BillingMode: PAY_PER_REQUEST
+    #
+    # Permission
+    #
+    # S3 Trigger
+    S3TriggerPermissionForLambda:
+      Type: "AWS::Lambda::Permission"
+      Properties:
+        Action: "lambda:InvokeFunction"
+        FunctionName:
+          'Fn::GetAtt':
+            - NotificationTwitterLambda
+            - Arn
+        Principal: "s3.amazonaws.com"
+        SourceArn: !Join
+          - ""
+          - - "arn:aws:s3:::"
+            - Ref: IoTMakingBucket
     #
     # Role, Policy
     #
@@ -351,6 +395,53 @@ resources:
                     - iot:*
                   # TODO リソースを絞る
                   Resource: '*'
+    # S3 TriggerでLambda実行時のRole
+    S3TriggerRoleForLambda:
+      Type: AWS::IAM::Role
+      Properties:
+        Path: /
+        RoleName: S3TriggerRoleForLambda
+        AssumeRolePolicyDocument:
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+              Action: sts:AssumeRole
+        Policies:
+          - PolicyName: S3TriggerPolicy
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:CreateLogGroup
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource:
+                    - 'Fn::Join':
+                        - ':'
+                        - - 'arn:aws:logs'
+                          - Ref: 'AWS::Region'
+                          - Ref: 'AWS::AccountId'
+                          - '*'
+                - Effect: Allow
+                  Action:
+                    - s3:ListBucket
+                  Resource:
+                    - 'Fn::Join':
+                        - ''
+                        - - 'arn:aws:s3:::'
+                          - Ref: IoTMakingBucket
+                - Effect: Allow
+                  Action:
+                    - s3:GetObject
+                  Resource:
+                    - 'Fn::Join':
+                        - ''
+                        - - 'arn:aws:s3:::'
+                          - Ref: IoTMakingBucket
+                          - '/*'
     # S3への一時的なアクセス権をSTSから取得する時のRole
     CreateTokenRole:
       Type: AWS::IAM::Role
