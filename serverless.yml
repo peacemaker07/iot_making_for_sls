@@ -52,6 +52,10 @@ provider:
     LINE_NOTIFY_ACCESS_TOKEN: ${file(./serverless.env.yml):LINE_NOTIFY_ACCESS_TOKEN}
     NAME_PREFIX: ${file(./serverless.env.yml):NAME_PREFIX}
     ENV: ${opt:stage}
+    TWITTER_CONSUMER_KEY: ${file(./serverless.env.yml):TWITTER_CONSUMER_KEY}
+    TWITTER_CONSUMER_SECRET: ${file(./serverless.env.yml):TWITTER_CONSUMER_SECRET}
+    TWITTER_ACCESS_TOKEN: ${file(./serverless.env.yml):TWITTER_ACCESS_TOKEN}
+    TWITTER_ACCESS_TOKEN_SECRET: ${file(./serverless.env.yml):TWITTER_ACCESS_TOKEN_SECRET}
 
 # you can add packaging information here
 #package:
@@ -143,10 +147,18 @@ functions:
           description: "notification sensor environment"
   #
   # S3 TriggerでLambdaを起動
+  # https://serverless.com/framework/docs/providers/aws/events/s3/
   #
   notification_twitter:
     handler: handler.notification_twitter
     role: S3TriggerRoleForLambda
+    events:
+      - s3:
+          bucket: ${file(./serverless.env.yml):NAME_PREFIX}-iot-making-${opt:stage}
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .jpg
+          existing: true
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -197,24 +209,6 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${file(./serverless.env.yml):NAME_PREFIX}-iot-making-${opt:stage}
-        NotificationConfiguration:
-          LambdaConfigurations:
-            - Event: "s3:ObjectCreated:Put"
-              Filter:
-                S3Key:
-                  Rules:
-                    # - Name: prefix
-                    #   Value: inbox/
-                    - Name: suffix
-                      Value: jpg
-              Function:
-                - 'Fn::Join':
-                    - ':'
-                    -
-                      - 'arn:aws:lambda'
-                      - Ref: 'AWS::Region'
-                      - Ref: 'AWS::AccountId'
-                      - 'function:iot-making-for-sls-dev-notification_twitter'
     #
     # DynamoDBのテーブル構築
     #
@@ -276,29 +270,6 @@ resources:
         #   WriteCapacityUnits: 3
         # On-Demand用設定値
         BillingMode: PAY_PER_REQUEST
-    #
-    # Permission
-    #
-    # S3 Trigger
-    S3TriggerPermissionForLambda:
-      Type: "AWS::Lambda::Permission"
-      Properties:
-        Action: "lambda:InvokeFunction"
-        FunctionName:
-          - 'Fn::Join':
-              - ':'
-              -
-                - 'arn:aws:lambda'
-                - Ref: 'AWS::Region'
-                - Ref: 'AWS::AccountId'
-                - 'function:iot-making-for-sls-dev-notification_twitter'
-        Principal: "s3.amazonaws.com"
-        SourceArn:
-          - 'Fn::Join':
-              - ":"
-              -
-                - "arn:aws:s3:::"
-                - Ref: IoTMakingBucket
     #
     # Role, Policy
     #
