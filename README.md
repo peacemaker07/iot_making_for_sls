@@ -13,6 +13,7 @@ AWSのIoT関連をserverless frameworkを使用して構築する際の実装集
   - ルール、アクションを使用してLambdaを実行
 - その他
   - Lambdaからslack、LINE Notifyへ通知
+  - S3へputされた画像をTweet
 
 ## Requirement
 
@@ -49,8 +50,7 @@ Default region name [None]: ap-northeast-1
 Default output format [None]: json
 ```
 
-※ profile名を「iot_making」以外にした場合
-
+profile名を「iot_making」以外にした場合
 serverless.ymlの「profile」を変更してください
 
 ```yaml
